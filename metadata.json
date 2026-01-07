@@ -1,6 +1,6 @@
 {
-  "name": "ADY Attendance & Fine Tracker",
-  "description": "A professional community attendance management system using OCR to track meeting presence from screenshots, manage fines, and generate leader-wise reports.",
+  "name": "ADY Sadhana tracker",
+  "description": "A professional community sadhana and attendance management system using OCR to track meeting presence from screenshots, manage fines, and generate leader-wise reports.",
   "requestFramePermissions": [
     "camera"
   ]

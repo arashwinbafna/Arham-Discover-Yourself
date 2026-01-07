@@ -8,6 +8,7 @@ import LeaderManager from './LeaderManager';
 import MeetingHistory from './MeetingHistory';
 import AuditLogView from './AuditLogView';
 import LeaderDashboard from './LeaderDashboard';
+import StorageSync from './StorageSync';
 
 interface DashboardProps {
   user: User;
@@ -23,6 +24,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, readOnly }) => {
     { id: 'meetings', label: 'Meetings', icon: 'fa-history' },
     { id: 'participants', label: 'Participants', icon: 'fa-users' },
     { id: 'leaders', label: 'Leaders', icon: 'fa-user-tie' },
+    { id: 'storage', label: 'Storage Sync', icon: 'fa-cloud' },
     { id: 'audit', label: 'Audit Logs', icon: 'fa-list-check' },
   ] : [
     { id: 'leader-view', label: 'My Group', icon: 'fa-users-gear' },
@@ -83,6 +85,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, readOnly }) => {
           {activeTab === 'participants' && <ParticipantManager admin={user} />}
           {activeTab === 'leaders' && <LeaderManager admin={user} />}
           {activeTab === 'meetings' && <MeetingHistory admin={user} />}
+          {activeTab === 'storage' && <StorageSync admin={user} />}
           {activeTab === 'audit' && <AuditLogView user={user} />}
           {activeTab === 'leader-view' && <LeaderDashboard leaderUser={user} readOnly={readOnly} />}
         </div>

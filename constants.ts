@@ -18,3 +18,10 @@ export const formatIST = (timestamp: number): string => {
     timeStyle: 'short'
   }).format(new Date(timestamp));
 };
+
+export const formatISTDateOnly = (timestamp: number): string => {
+  return new Intl.DateTimeFormat('en-IN', {
+    timeZone: TIMEZONE,
+    dateStyle: 'medium'
+  }).format(new Date(timestamp));
+};

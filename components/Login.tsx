@@ -6,9 +6,10 @@ import { User, Role } from '../types';
 
 interface LoginProps {
   onLogin: (user: User) => void;
+  onBack: () => void;
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin }) => {
+const Login: React.FC<LoginProps> = ({ onLogin, onBack }) => {
   const [isRegistering, setIsRegistering] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -21,49 +22,68 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setError('');
 
     const users = storageService.getUsers();
+    const normalizedUsername = username.toLowerCase().trim();
+    const normalizedPassword = password.toLowerCase().trim();
+    const normalizedMasterPass = masterPass.toLowerCase().trim();
+    const normalizedGlobalMasterPass = MASTER_PASSWORD.toLowerCase().trim();
 
     if (isRegistering) {
-      if (masterPass !== MASTER_PASSWORD) {
+      if (normalizedMasterPass !== normalizedGlobalMasterPass) {
         setError('Incorrect Master Password for registration.');
         return;
       }
-      if (users.find(u => u.username === username)) {
+      if (users.find(u => u.username.toLowerCase() === normalizedUsername)) {
         setError('Username already exists.');
         return;
       }
       const newUser: User = {
         id: crypto.randomUUID(),
-        username,
+        username: username.trim(), // Keep original casing for display, but check insensitive
         role,
-        leaderId: role === 'LEADER' ? 'L-' + crypto.randomUUID().slice(0, 4) : undefined
+        leaderId: role === 'LEADER' ? username.trim() : undefined
       };
-      // For simulation, we aren't storing passwords, just username check
       storageService.saveUser(newUser);
       storageService.log('SYSTEM', 'User Created', `User ${username} registered as ${role}`);
       onLogin(newUser);
     } else {
-      const user = users.find(u => u.username === username);
+      // Admin bypass - case insensitive
+      if (normalizedUsername === 'admin' && normalizedPassword === normalizedGlobalMasterPass) {
+        let admin = users.find(u => u.username.toLowerCase() === 'admin' && u.role === 'ADMIN');
+        if (!admin) {
+          admin = { id: 'admin-id', username: 'admin', role: 'ADMIN' };
+          storageService.saveUser(admin);
+        }
+        onLogin(admin);
+        return;
+      }
+
+      const user = users.find(u => u.username.toLowerCase() === normalizedUsername);
       if (user) {
+        // Enforce default password 'a' (case-insensitive) for leaders
+        if (user.role === 'LEADER' && normalizedPassword !== 'a') {
+          setError('Invalid password for leader account.');
+          return;
+        }
         onLogin(user);
       } else {
-        // First time initialization auto-admin if no users exist
-        if (users.length === 0 && username === 'admin' && masterPass === MASTER_PASSWORD) {
-           const admin: User = { id: 'admin-id', username: 'admin', role: 'ADMIN' };
-           storageService.saveUser(admin);
-           onLogin(admin);
-        } else {
-          setError('Invalid credentials or user not found.');
-        }
+        setError('Invalid credentials or user not found.');
       }
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-      <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md border-t-8" style={{ borderColor: COLORS.PRIMARY }}>
+      <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md border-t-8 relative" style={{ borderColor: COLORS.PRIMARY }}>
+        <button 
+          onClick={onBack}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+        >
+          <i className="fas fa-times text-xl"></i>
+        </button>
+
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2" style={{ color: COLORS.DEEP_RED }}>ADY 2025</h1>
-          <p className="text-gray-500">Attendance & Fine Management System</p>
+          <h1 className="text-3xl font-bold mb-2" style={{ color: COLORS.DEEP_RED }}>ADY Sadhana tracker</h1>
+          <p className="text-gray-500">Sign in to your account</p>
         </div>
 
         <form onSubmit={handleAuth} className="space-y-4">
@@ -75,7 +95,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               required 
               value={username}
               onChange={e => setUsername(e.target.value)}
-              placeholder="Enter your username"
+              placeholder="Enter name (e.g. Arjun Singh)"
             />
           </div>
 
@@ -87,7 +107,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               required 
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder="Enter password"
+              placeholder="Password (default is 'a')"
             />
           </div>
 
@@ -118,12 +138,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             </>
           )}
 
-          {(!isRegistering && storageService.getUsers().length === 0) && (
-             <div className="text-xs text-blue-600 mb-2 italic">
-               System is uninitialized. Log in as 'admin' with Master Password to start.
-             </div>
-          )}
-
           {error && <p className="text-red-500 text-sm">{error}</p>}
 
           <button 
@@ -136,11 +150,12 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </form>
 
         <div className="mt-6 text-center">
+          <p className="text-xs text-gray-400 mb-4 italic">Login is case-insensitive</p>
           <button 
             onClick={() => setIsRegistering(!isRegistering)}
-            className="text-sm text-primary hover:underline"
+            className="text-sm text-primary font-bold hover:underline"
           >
-            {isRegistering ? 'Already have an account? Sign In' : 'Need an admin/leader account? Register'}
+            {isRegistering ? 'Already have an account? Sign In' : 'New Leader Registration'}
           </button>
         </div>
       </div>

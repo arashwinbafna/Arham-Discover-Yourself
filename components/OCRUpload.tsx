@@ -7,6 +7,7 @@ import {
   User, Participant, Meeting, MeetingStatus, 
   Attendance, AttendanceStatus, Fine 
 } from '../types';
+import EmailNotification from './EmailNotification';
 
 interface OCRUploadProps {
   admin: User;
@@ -16,6 +17,9 @@ const OCRUpload: React.FC<OCRUploadProps> = ({ admin }) => {
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [processingStatus, setProcessingStatus] = useState('');
+  const [showEmailView, setShowEmailView] = useState(false);
+  const [lastConfirmedMeetingId, setLastConfirmedMeetingId] = useState<string | null>(null);
+  
   const [meetingDetails, setMeetingDetails] = useState({
     name: '',
     timestamp: Date.now(),
@@ -59,7 +63,6 @@ const OCRUpload: React.FC<OCRUploadProps> = ({ admin }) => {
         let found = false;
         let score = 0;
 
-        // Simple fuzzy match simulation
         for (const foundName of foundNames) {
           const lowerFound = foundName.toLowerCase();
           if (pNames.some(pn => pn === lowerFound)) {
@@ -68,7 +71,7 @@ const OCRUpload: React.FC<OCRUploadProps> = ({ admin }) => {
             break;
           } else if (pNames.some(pn => pn.includes(lowerFound) || lowerFound.includes(pn))) {
             found = true;
-            score = 85; // Partial match triggers NEEDS_REVIEW potentially
+            score = 85;
             break;
           }
         }
@@ -127,11 +130,8 @@ const OCRUpload: React.FC<OCRUploadProps> = ({ admin }) => {
     storageService.saveFinesBatch(fineBatch);
     storageService.log(admin.username, 'Meeting Confirmed', `Confirmed attendance for ${newMeeting.name}`);
 
-    alert("Meeting confirmed! Fines generated and leaders notified.");
-    // Reset state
-    setOcrResults(null);
-    setFiles([]);
-    setMeetingDetails({ name: '', timestamp: Date.now(), fineAmount: 20 });
+    setLastConfirmedMeetingId(meetingId);
+    setShowEmailView(true);
   };
 
   const toggleStatus = (index: number) => {
@@ -145,6 +145,21 @@ const OCRUpload: React.FC<OCRUploadProps> = ({ admin }) => {
 
     setOcrResults({ ...ocrResults, matches: newMatches });
   };
+
+  if (showEmailView && lastConfirmedMeetingId) {
+    return (
+      <EmailNotification 
+        admin={admin} 
+        meetingId={lastConfirmedMeetingId} 
+        onDone={() => {
+          setShowEmailView(false);
+          setOcrResults(null);
+          setFiles([]);
+          setMeetingDetails({ name: '', timestamp: Date.now(), fineAmount: 20 });
+        }}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -245,7 +260,7 @@ const OCRUpload: React.FC<OCRUploadProps> = ({ admin }) => {
                 onClick={confirmMeeting}
                 className="bg-primary text-white px-4 py-2 rounded text-sm font-bold shadow hover:opacity-90 transition-opacity"
               >
-                Confirm & Confirm Meeting
+                Confirm & Notify Leaders
               </button>
             )}
           </div>

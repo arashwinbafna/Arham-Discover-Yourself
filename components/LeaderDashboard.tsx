@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { storageService } from '../services/storageService';
 import { User, Leader, Participant, Meeting, Fine, Attendance } from '../types';
-import { COLORS, formatIST } from '../constants';
+import { COLORS, formatISTDateOnly } from '../constants';
 
 interface LeaderDashboardProps {
   leaderUser: User;
@@ -17,19 +17,23 @@ const LeaderDashboard: React.FC<LeaderDashboardProps> = ({ leaderUser, readOnly 
 
   useEffect(() => {
     const allLeaders = storageService.getLeaders();
-    const lInfo = allLeaders.find(l => l.id === leaderUser.leaderId) || {
-       id: leaderUser.leaderId!,
-       name: leaderUser.username,
-       phone: '',
-       email: '',
-       groupName: 'Assigned Group',
-       createdAt: Date.now()
-    };
-    setLeaderInfo(lInfo);
-
-    const allParticipants = storageService.getParticipants();
-    const filtered = allParticipants.filter(p => p.currentLeaderId === lInfo.id);
-    setMyParticipants(filtered);
+    const lInfo = allLeaders.find(l => l.id.toLowerCase() === leaderUser.username.toLowerCase() || l.name.toLowerCase() === leaderUser.username.toLowerCase());
+    
+    if (lInfo) {
+      setLeaderInfo(lInfo);
+      const allParticipants = storageService.getParticipants();
+      const filtered = allParticipants.filter(p => p.currentLeaderId === lInfo.id);
+      setMyParticipants(filtered);
+    } else {
+      setLeaderInfo({
+         id: leaderUser.username,
+         name: leaderUser.username,
+         phone: '',
+         email: '',
+         groupName: 'Unassigned Group',
+         createdAt: Date.now()
+      });
+    }
 
     setFines(storageService.getFines());
     setMeetings(storageService.getMeetings());
@@ -53,6 +57,11 @@ const LeaderDashboard: React.FC<LeaderDashboardProps> = ({ leaderUser, readOnly 
     return fines
       .filter(f => myParticipants.some(p => p.id === f.participantId))
       .sort((a, b) => {
+        // First priority: Unpaid at the top
+        if (a.isPaid !== b.isPaid) {
+          return a.isPaid ? 1 : -1;
+        }
+        // Second priority: Newest meeting first
         const ma = meetings.find(m => m.id === a.meetingId)?.timestamp || 0;
         const mb = meetings.find(m => m.id === b.meetingId)?.timestamp || 0;
         return mb - ma;
@@ -60,11 +69,11 @@ const LeaderDashboard: React.FC<LeaderDashboardProps> = ({ leaderUser, readOnly 
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       <header className="flex justify-between items-center bg-white p-6 rounded-xl border shadow-sm">
         <div>
           <h1 className="text-2xl font-bold">Group Dashboard</h1>
-          <p className="text-gray-500">{leaderInfo?.groupName} • {myParticipants.length} Members</p>
+          <p className="text-gray-500">{leaderInfo?.groupName || 'No Group assigned'} • {myParticipants.length} Members</p>
         </div>
         <div className="text-right">
           <div className="text-xs text-gray-500 uppercase font-bold">Total Pending Fines</div>
@@ -75,59 +84,104 @@ const LeaderDashboard: React.FC<LeaderDashboardProps> = ({ leaderUser, readOnly 
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-          <div className="p-4 bg-gray-50 border-b font-bold flex justify-between">
-            <span>Group Members</span>
+        {/* Members List */}
+        <div className="bg-white rounded-xl border shadow-sm overflow-hidden flex flex-col">
+          <div className="p-4 bg-gray-50 border-b font-bold flex justify-between items-center">
+            <span>Members & Direct Contact</span>
             <i className="fas fa-users text-gray-400"></i>
           </div>
-          <div className="divide-y max-h-96 overflow-y-auto">
+          <div className="divide-y overflow-y-auto max-h-[500px]">
             {myParticipants.map(p => (
-              <div key={p.id} className="p-4 flex justify-between items-center">
-                <div>
-                  <div className="font-bold">{p.fullName}</div>
-                  <div className="text-xs text-gray-500">{p.phone}</div>
+              <div key={p.id} className="p-4 flex justify-between items-center hover:bg-gray-50 transition-colors">
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold truncate">{p.fullName}</div>
+                  <div className="text-xs text-gray-500 mb-2">{p.phone}</div>
+                  <div className="flex space-x-3">
+                    <a 
+                      href={`tel:${p.phone}`}
+                      className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold flex items-center hover:bg-blue-100 transition-colors"
+                    >
+                      <i className="fas fa-phone-alt mr-2"></i> Call
+                    </a>
+                    <a 
+                      href={`https://wa.me/${p.phone.replace(/\D/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1 bg-green-50 text-green-600 rounded-lg text-xs font-bold flex items-center hover:bg-green-100 transition-colors"
+                    >
+                      <i className="fab fa-whatsapp mr-2"></i> WhatsApp
+                    </a>
+                  </div>
                 </div>
-                <div className="text-xs text-gray-400 italic">Active</div>
+                <div className="text-[10px] text-gray-400 italic bg-gray-100 px-2 py-1 rounded ml-4 uppercase tracking-tighter">Member</div>
               </div>
             ))}
-            {myParticipants.length === 0 && <div className="p-8 text-center text-gray-400">No participants assigned.</div>}
+            {myParticipants.length === 0 && (
+              <div className="p-12 text-center text-gray-400">
+                <i className="fas fa-user-slash text-4xl mb-3 opacity-20"></i>
+                <p>No members assigned to your name.</p>
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-          <div className="p-4 bg-gray-50 border-b font-bold flex justify-between">
-            <span>Recent Fine History</span>
-            <i className="fas fa-receipt text-gray-400"></i>
+        {/* Paid Status Tracker */}
+        <div className="bg-white rounded-xl border shadow-sm overflow-hidden flex flex-col">
+          <div className="p-4 bg-gray-50 border-b font-bold flex justify-between items-center">
+            <span>Member Payment Status</span>
+            <div className="flex items-center text-[10px] text-gray-400 uppercase">
+              <i className="fas fa-arrow-down mr-1"></i> Paid move to bottom
+            </div>
           </div>
-          <div className="divide-y max-h-96 overflow-y-auto">
+          <div className="divide-y overflow-y-auto max-h-[500px]">
             {getRecentFines().map(f => {
               const p = myParticipants.find(x => x.id === f.participantId);
               const m = meetings.find(x => x.id === f.meetingId);
               return (
-                <div key={f.id} className="p-4 flex justify-between items-center hover:bg-gray-50 transition-colors">
-                  <div>
-                    <div className="font-bold">{p?.fullName}</div>
-                    <div className="text-xs text-gray-500">{m?.name} ({formatIST(m?.timestamp || 0)})</div>
+                <div key={f.id} className={`p-4 flex justify-between items-center transition-all ${f.isPaid ? 'bg-gray-50 opacity-60' : 'bg-white'}`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold truncate text-sm">{p?.fullName}</div>
+                    <div className="text-[10px] text-gray-400">{m?.name} ({m ? formatISTDateOnly(m.timestamp) : 'N/A'})</div>
                   </div>
-                  <div className="flex flex-col items-end">
-                    <div className="font-bold text-deepRed mb-1">₹{f.amount}</div>
+                  <div className="flex flex-col items-end flex-shrink-0 ml-4">
+                    <div className={`font-bold mb-1 ${f.isPaid ? 'text-gray-400' : 'text-accentRed'}`}>₹{f.amount}</div>
                     <button 
                       disabled={readOnly}
                       onClick={() => toggleFinePaid(f.id)}
-                      className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase transition-all ${
+                      className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase transition-all shadow-sm border ${
                         f.isPaid 
-                          ? 'bg-green-500 text-white hover:bg-green-600' 
-                          : 'bg-red-100 text-red-700 hover:bg-red-200 border border-red-200'
-                      } ${readOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          ? 'bg-green-500 text-white border-green-600' 
+                          : 'bg-white text-red-600 border-red-200 hover:bg-red-50'
+                      } ${readOnly ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'}`}
                     >
-                      {f.isPaid ? 'Paid' : 'Unpaid'}
+                      {f.isPaid ? <><i className="fas fa-check mr-1"></i> Paid</> : 'Mark Paid'}
                     </button>
                   </div>
                 </div>
               );
             })}
-            {getRecentFines().length === 0 && <div className="p-8 text-center text-gray-400">No fines recorded.</div>}
+            {getRecentFines().length === 0 && (
+              <div className="p-12 text-center text-gray-400">
+                <i className="fas fa-receipt text-4xl mb-3 opacity-20"></i>
+                <p>All clean! No pending fines recorded.</p>
+              </div>
+            )}
           </div>
+        </div>
+      </div>
+      
+      <div className="bg-blue-600 p-6 rounded-2xl shadow-lg text-white flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl">
+            <i className="fas fa-cloud-upload-alt"></i>
+          </div>
+          <div>
+            <h4 className="font-bold text-lg">Auto-Sync Enabled</h4>
+            <p className="text-blue-100 text-xs">All updates are securely saved to the community cloud storage.</p>
+          </div>
+        </div>
+        <div className="text-[10px] uppercase font-bold px-3 py-1 bg-white/10 rounded-full">
+          Cloud Status: Active
         </div>
       </div>
     </div>
