@@ -24,6 +24,23 @@ const set = <T,>(key: string, data: T[]): void => {
 };
 
 export const storageService = {
+  // Cloud Sync Utilities
+  exportFullData: () => {
+    const data: Record<string, any> = {};
+    Object.entries(STORAGE_KEYS).forEach(([key, storageKey]) => {
+      data[key] = get(storageKey);
+    });
+    return data;
+  },
+
+  importFullData: (data: Record<string, any>) => {
+    Object.entries(STORAGE_KEYS).forEach(([key, storageKey]) => {
+      if (data[key]) {
+        set(storageKey, data[key]);
+      }
+    });
+  },
+
   // General
   resetAll: () => {
     Object.values(STORAGE_KEYS).forEach(k => localStorage.removeItem(k));
@@ -31,7 +48,17 @@ export const storageService = {
 
   // Users
   getUsers: () => get<User>(STORAGE_KEYS.USERS),
-  saveUser: (user: User) => set(STORAGE_KEYS.USERS, [...get<User>(STORAGE_KEYS.USERS), user]),
+  saveUser: (user: User) => {
+    const users = get<User>(STORAGE_KEYS.USERS);
+    const exists = users.find(u => u.username.toLowerCase() === user.username.toLowerCase());
+    if (!exists) {
+      set(STORAGE_KEYS.USERS, [...users, user]);
+    }
+  },
+  deleteUser: (id: string) => {
+    const users = get<User>(STORAGE_KEYS.USERS);
+    set(STORAGE_KEYS.USERS, users.filter(u => u.id !== id));
+  },
 
   // Participants
   getParticipants: () => get<Participant>(STORAGE_KEYS.PARTICIPANTS),
@@ -48,6 +75,10 @@ export const storageService = {
   // Leaders
   getLeaders: () => get<Leader>(STORAGE_KEYS.LEADERS),
   addLeader: (l: Leader) => set(STORAGE_KEYS.LEADERS, [...get<Leader>(STORAGE_KEYS.LEADERS), l]),
+  deleteLeader: (id: string) => {
+    const list = get<Leader>(STORAGE_KEYS.LEADERS);
+    set(STORAGE_KEYS.LEADERS, list.filter(item => item.id !== id));
+  },
 
   // Meetings
   getMeetings: () => get<Meeting>(STORAGE_KEYS.MEETINGS),

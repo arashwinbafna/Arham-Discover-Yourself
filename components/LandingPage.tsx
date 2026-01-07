@@ -3,7 +3,7 @@ import React from 'react';
 import { COLORS } from '../constants';
 
 interface LandingPageProps {
-  onLoginClick: () => void;
+  onLoginClick: (role?: 'ADMIN' | 'LEADER') => void;
   onUploadClick: () => void;
 }
 
@@ -21,35 +21,44 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLoginClick, onUploadClick }
           </div>
           <span className="text-xl font-bold tracking-tight text-gray-800">ADY Sadhana tracker</span>
         </div>
-        <button 
-          onClick={onLoginClick}
-          className="px-6 py-2 rounded-full border-2 border-primary text-primary font-bold hover:bg-primary hover:text-white transition-all"
-        >
-          Sign In
-        </button>
       </header>
 
       {/* Hero Section */}
       <main className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-        <div className="max-w-2xl animate-fadeIn">
+        <div className="max-w-3xl animate-fadeIn">
           <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 mb-6 leading-tight">
-            AI-Powered <span style={{ color: COLORS.PRIMARY }}>Sadhana</span> Tracking
+            Community <span style={{ color: COLORS.PRIMARY }}>Sadhana</span> Management
           </h1>
-          <p className="text-xl text-gray-600 mb-10">
-            Automate meeting participation records and fine management using Gemini Vision OCR technology. 
-            Upload screenshots and get instant reports.
+          <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto">
+            A professional tracking system for attendance and fines. 
+            Choose your portal below to get started.
           </p>
           
-          <button 
-            onClick={onUploadClick}
-            className="group relative inline-flex items-center justify-center px-10 py-6 font-bold text-white transition-all duration-200 bg-secondary font-pj rounded-2xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-secondary active:scale-95 shadow-xl hover:shadow-secondary/20"
-            style={{ backgroundColor: COLORS.SECONDARY }}
-          >
-            <i className="fas fa-camera text-2xl mr-4 group-hover:scale-110 transition-transform"></i>
-            <span className="text-2xl">Upload Meeting Screenshot</span>
-          </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-xl mx-auto">
+            <button 
+              onClick={() => onLoginClick('ADMIN')}
+              className="flex flex-col items-center justify-center p-8 bg-white border-2 border-deepRed rounded-2xl shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 group"
+            >
+              <div className="w-16 h-16 bg-red-50 text-deepRed rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <i className="fas fa-user-shield text-3xl"></i>
+              </div>
+              <span className="text-xl font-bold text-gray-800">Login for Admin</span>
+              <p className="text-xs text-gray-400 mt-2">Manage users, OCR & global data</p>
+            </button>
+
+            <button 
+              onClick={() => onLoginClick('LEADER')}
+              className="flex flex-col items-center justify-center p-8 bg-white border-2 border-primary rounded-2xl shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 group"
+            >
+              <div className="w-16 h-16 bg-blue-50 text-primary rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <i className="fas fa-user-tie text-3xl"></i>
+              </div>
+              <span className="text-xl font-bold text-gray-800">Login for Leaders</span>
+              <p className="text-xs text-gray-400 mt-2">Track group fines & attendance</p>
+            </button>
+          </div>
           
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="p-4">
               <i className="fas fa-bolt text-secondary text-2xl mb-2"></i>
               <h3 className="font-bold">Fast OCR</h3>

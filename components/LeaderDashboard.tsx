@@ -17,7 +17,10 @@ const LeaderDashboard: React.FC<LeaderDashboardProps> = ({ leaderUser, readOnly 
 
   useEffect(() => {
     const allLeaders = storageService.getLeaders();
-    const lInfo = allLeaders.find(l => l.id.toLowerCase() === leaderUser.username.toLowerCase() || l.name.toLowerCase() === leaderUser.username.toLowerCase());
+    const lInfo = allLeaders.find(l => 
+      l.id.toLowerCase() === leaderUser.username.toLowerCase() || 
+      l.name.toLowerCase() === leaderUser.username.toLowerCase()
+    );
     
     if (lInfo) {
       setLeaderInfo(lInfo);
@@ -57,11 +60,11 @@ const LeaderDashboard: React.FC<LeaderDashboardProps> = ({ leaderUser, readOnly 
     return fines
       .filter(f => myParticipants.some(p => p.id === f.participantId))
       .sort((a, b) => {
-        // First priority: Unpaid at the top
+        // Priority 1: Unpaid (isPaid === false) comes first
         if (a.isPaid !== b.isPaid) {
           return a.isPaid ? 1 : -1;
         }
-        // Second priority: Newest meeting first
+        // Priority 2: Newest meeting date first
         const ma = meetings.find(m => m.id === a.meetingId)?.timestamp || 0;
         const mb = meetings.find(m => m.id === b.meetingId)?.timestamp || 0;
         return mb - ma;
@@ -84,7 +87,7 @@ const LeaderDashboard: React.FC<LeaderDashboardProps> = ({ leaderUser, readOnly 
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Members List */}
+        {/* Members List with Call/WA */}
         <div className="bg-white rounded-xl border shadow-sm overflow-hidden flex flex-col">
           <div className="p-4 bg-gray-50 border-b font-bold flex justify-between items-center">
             <span>Members & Direct Contact</span>
@@ -125,12 +128,12 @@ const LeaderDashboard: React.FC<LeaderDashboardProps> = ({ leaderUser, readOnly 
           </div>
         </div>
 
-        {/* Paid Status Tracker */}
+        {/* Paid Status Tracker - Sorted */}
         <div className="bg-white rounded-xl border shadow-sm overflow-hidden flex flex-col">
           <div className="p-4 bg-gray-50 border-b font-bold flex justify-between items-center">
             <span>Member Payment Status</span>
             <div className="flex items-center text-[10px] text-gray-400 uppercase">
-              <i className="fas fa-arrow-down mr-1"></i> Paid move to bottom
+              <i className="fas fa-sort-amount-down mr-1"></i> Paid move to bottom
             </div>
           </div>
           <div className="divide-y overflow-y-auto max-h-[500px]">
@@ -176,12 +179,12 @@ const LeaderDashboard: React.FC<LeaderDashboardProps> = ({ leaderUser, readOnly 
             <i className="fas fa-cloud-upload-alt"></i>
           </div>
           <div>
-            <h4 className="font-bold text-lg">Auto-Sync Enabled</h4>
-            <p className="text-blue-100 text-xs">All updates are securely saved to the community cloud storage.</p>
+            <h4 className="font-bold text-lg">Community Cloud Sync</h4>
+            <p className="text-blue-100 text-xs">All updates are securely saved and synced to the global ADY storage.</p>
           </div>
         </div>
         <div className="text-[10px] uppercase font-bold px-3 py-1 bg-white/10 rounded-full">
-          Cloud Status: Active
+          Sync Status: Connected
         </div>
       </div>
     </div>

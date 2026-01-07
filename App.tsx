@@ -1,22 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
-import { storageService } from './services/storageService';
-import { User } from './types';
+import { User, Role } from './types';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import LandingPage from './components/LandingPage';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isCloudReadOnly, setIsCloudReadOnly] = useState(false);
   const [view, setView] = useState<'LANDING' | 'LOGIN' | 'DASHBOARD'>('LANDING');
+  const [initialLoginRole, setInitialLoginRole] = useState<Role | undefined>();
 
   useEffect(() => {
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (!isLocal) {
-      setIsCloudReadOnly(true);
-    }
-
     const saved = localStorage.getItem('ady_session');
     if (saved) {
       setCurrentUser(JSON.parse(saved));
@@ -36,24 +30,22 @@ const App: React.FC = () => {
     setView('LANDING');
   };
 
-  const startOCRFlow = () => {
-    if (currentUser?.role === 'ADMIN') {
-      setView('DASHBOARD');
-    } else {
-      setView('LOGIN');
-    }
+  const handleLandingLoginClick = (role?: Role) => {
+    setInitialLoginRole(role);
+    setView('LOGIN');
   };
 
   return (
     <>
       {view === 'LANDING' && (
         <LandingPage 
-          onLoginClick={() => setView('LOGIN')} 
-          onUploadClick={startOCRFlow}
+          onLoginClick={handleLandingLoginClick} 
+          onUploadClick={() => handleLandingLoginClick('ADMIN')}
         />
       )}
       {view === 'LOGIN' && (
         <Login 
+          initialRole={initialLoginRole}
           onLogin={handleLogin} 
           onBack={() => setView('LANDING')}
         />
@@ -62,7 +54,7 @@ const App: React.FC = () => {
         <Dashboard 
           user={currentUser} 
           onLogout={handleLogout} 
-          readOnly={isCloudReadOnly && currentUser.role === 'LEADER'} 
+          readOnly={false} // Read-only restriction removed to support public IP hosting
         />
       )}
     </>

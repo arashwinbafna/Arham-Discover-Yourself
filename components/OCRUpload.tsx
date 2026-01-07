@@ -2,7 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { storageService } from '../services/storageService';
 import { performOCR } from '../services/geminiService';
-import { COLORS, formatIST } from '../constants';
+import { COLORS } from '../constants';
 import { 
   User, Participant, Meeting, MeetingStatus, 
   Attendance, AttendanceStatus, Fine 
@@ -10,10 +10,10 @@ import {
 import EmailNotification from './EmailNotification';
 
 interface OCRUploadProps {
-  admin: User;
+  user: User; // Renamed from admin to user for broader access
 }
 
-const OCRUpload: React.FC<OCRUploadProps> = ({ admin }) => {
+const OCRUpload: React.FC<OCRUploadProps> = ({ user }) => {
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [processingStatus, setProcessingStatus] = useState('');
@@ -128,7 +128,7 @@ const OCRUpload: React.FC<OCRUploadProps> = ({ admin }) => {
     storageService.addMeeting(newMeeting);
     storageService.saveAttendanceBatch(attendanceBatch);
     storageService.saveFinesBatch(fineBatch);
-    storageService.log(admin.username, 'Meeting Confirmed', `Confirmed attendance for ${newMeeting.name}`);
+    storageService.log(user.username, 'Meeting Tracked', `Generated attendance for ${newMeeting.name}`);
 
     setLastConfirmedMeetingId(meetingId);
     setShowEmailView(true);
@@ -149,7 +149,7 @@ const OCRUpload: React.FC<OCRUploadProps> = ({ admin }) => {
   if (showEmailView && lastConfirmedMeetingId) {
     return (
       <EmailNotification 
-        admin={admin} 
+        admin={user} 
         meetingId={lastConfirmedMeetingId} 
         onDone={() => {
           setShowEmailView(false);
@@ -165,57 +165,59 @@ const OCRUpload: React.FC<OCRUploadProps> = ({ admin }) => {
     <div className="space-y-6 animate-fadeIn">
       <header className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">New Attendance Entry</h1>
-          <p className="text-gray-500">Upload meeting screenshots to auto-derive attendance</p>
+          <h1 className="text-2xl font-black text-gray-800 tracking-tight">AI Attendance Scanner</h1>
+          <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mt-1">Role: {user.role} Portal</p>
         </div>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-1 bg-white p-6 rounded-xl shadow-sm border space-y-4">
-          <h3 className="font-bold border-b pb-2">Meeting Details</h3>
+        <div className="md:col-span-1 bg-white p-6 rounded-2xl shadow-sm border space-y-4">
+          <h3 className="font-bold border-b pb-2 text-sm uppercase tracking-wider text-gray-400">Meeting Setup</h3>
           <div>
-            <label className="block text-sm font-medium mb-1">Meeting Name</label>
+            <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Meeting Title</label>
             <input 
               type="text" 
-              className="w-full p-2 border rounded" 
-              placeholder="e.g. Sunday General Meeting"
+              className="w-full p-3 bg-gray-50 border-0 rounded-xl focus:ring-2 focus:ring-primary outline-none font-medium" 
+              placeholder="e.g. Area Sadhana Meet"
               value={meetingDetails.name}
               onChange={e => setMeetingDetails({...meetingDetails, name: e.target.value})}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Date & Time (IST)</label>
+            <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Date & Time</label>
             <input 
               type="datetime-local" 
-              className="w-full p-2 border rounded"
+              className="w-full p-3 bg-gray-50 border-0 rounded-xl focus:ring-2 focus:ring-primary outline-none font-medium"
               onChange={e => setMeetingDetails({...meetingDetails, timestamp: new Date(e.target.value).getTime()})}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Fine Amount</label>
-            <div className="flex space-x-4">
+            <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Fine per Absentee</label>
+            <div className="flex space-x-2">
               {[20, 50].map(amt => (
-                <label key={amt} className="flex items-center space-x-2 cursor-pointer">
-                  <input 
-                    type="radio" 
-                    name="fine" 
-                    checked={meetingDetails.fineAmount === amt}
-                    onChange={() => setMeetingDetails({...meetingDetails, fineAmount: amt as 20 | 50})}
-                  />
-                  <span>₹{amt}</span>
-                </label>
+                <button 
+                  key={amt}
+                  onClick={() => setMeetingDetails({...meetingDetails, fineAmount: amt as 20 | 50})}
+                  className={`flex-1 py-2 rounded-xl border-2 font-black transition-all ${
+                    meetingDetails.fineAmount === amt 
+                    ? 'border-primary bg-primary/5 text-primary' 
+                    : 'border-gray-100 text-gray-300'
+                  }`}
+                >
+                  ₹{amt}
+                </button>
               ))}
             </div>
           </div>
           
           <div className="pt-4">
-            <label className="block text-sm font-medium mb-2">Screenshots</label>
+            <label className="block text-[10px] font-bold uppercase text-gray-400 mb-2">Meeting Proof (Screenshots)</label>
             <div 
               onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors"
+              className="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center cursor-pointer hover:border-primary hover:bg-blue-50 transition-all group"
             >
-              <i className="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
-              <p className="text-sm text-gray-500">Click to upload JPG/PNG</p>
+              <i className="fas fa-camera text-2xl text-gray-300 group-hover:text-primary mb-2"></i>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">Click to select images</p>
               <input 
                 ref={fileInputRef} 
                 type="file" 
@@ -225,8 +227,8 @@ const OCRUpload: React.FC<OCRUploadProps> = ({ admin }) => {
               />
             </div>
             {files.length > 0 && (
-              <div className="mt-2 text-xs text-gray-500 italic">
-                {files.length} files selected
+              <div className="mt-2 text-[10px] text-primary font-bold uppercase text-center">
+                {files.length} images ready to scan
               </div>
             )}
           </div>
@@ -234,41 +236,41 @@ const OCRUpload: React.FC<OCRUploadProps> = ({ admin }) => {
           <button 
             disabled={loading || files.length === 0}
             onClick={processOCR}
-            className="w-full py-3 rounded-lg text-white font-bold bg-secondary disabled:bg-gray-300"
-            style={!loading ? { backgroundColor: COLORS.SECONDARY } : {}}
+            className="w-full py-4 rounded-2xl text-white font-black uppercase tracking-widest text-sm transition-all active:scale-95 shadow-xl disabled:bg-gray-100 disabled:shadow-none"
+            style={!loading && files.length > 0 ? { backgroundColor: user.role === 'ADMIN' ? COLORS.DEEP_RED : COLORS.PRIMARY } : {}}
           >
             {loading ? (
               <span className="flex items-center justify-center space-x-2">
-                <i className="fas fa-spinner fa-spin"></i>
-                <span>Processing...</span>
+                <i className="fas fa-circle-notch fa-spin"></i>
+                <span>Analyzing...</span>
               </span>
-            ) : 'Run OCR Analysis'}
+            ) : 'Analyze Presence'}
           </button>
           
           {processingStatus && (
-            <p className="text-xs text-center text-blue-600 font-medium animate-pulse">
+            <p className="text-[9px] text-center text-primary font-bold uppercase animate-pulse">
               {processingStatus}
             </p>
           )}
         </div>
 
-        <div className="md:col-span-2 bg-white p-6 rounded-xl shadow-sm border">
-          <div className="flex justify-between items-center mb-4 border-b pb-2">
-            <h3 className="font-bold">OCR Results {ocrResults && `(${ocrResults.matches.length} Participants)`}</h3>
+        <div className="md:col-span-2 bg-white p-6 rounded-2xl shadow-sm border">
+          <div className="flex justify-between items-center mb-6 border-b pb-4">
+            <h3 className="font-bold text-sm uppercase tracking-wider text-gray-400">Presence Analysis</h3>
             {ocrResults && (
               <button 
                 onClick={confirmMeeting}
-                className="bg-primary text-white px-4 py-2 rounded text-sm font-bold shadow hover:opacity-90 transition-opacity"
+                className="bg-green-600 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-green-700 transition-all active:scale-95"
               >
-                Confirm & Notify Leaders
+                Confirm & Generate Reports
               </button>
             )}
           </div>
 
           {!ocrResults && !loading && (
-            <div className="h-64 flex flex-col items-center justify-center text-gray-400">
-              <i className="fas fa-microchip text-5xl mb-4"></i>
-              <p>Ready to analyze screenshots...</p>
+            <div className="h-96 flex flex-col items-center justify-center text-gray-300 opacity-50">
+              <i className="fas fa-microchip text-6xl mb-4"></i>
+              <p className="text-[10px] font-bold uppercase tracking-widest">Awaiting system input...</p>
             </div>
           )}
 
@@ -277,21 +279,32 @@ const OCRUpload: React.FC<OCRUploadProps> = ({ admin }) => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 text-left">
-                    <th className="p-3">Participant</th>
-                    <th className="p-3">Matched Names</th>
-                    <th className="p-3">Status</th>
-                    <th className="p-3">Action</th>
+                    <th className="p-4 text-[10px] uppercase font-bold text-gray-400">Member</th>
+                    <th className="p-4 text-[10px] uppercase font-bold text-gray-400">Confidence</th>
+                    <th className="p-4 text-[10px] uppercase font-bold text-gray-400">Presence</th>
+                    <th className="p-4 text-right text-[10px] uppercase font-bold text-gray-400">Toggle</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {ocrResults.matches.map((res, idx) => (
-                    <tr key={res.participant.id}>
-                      <td className="p-3 font-medium">{res.participant.fullName}</td>
-                      <td className="p-3 text-xs text-gray-500">
-                        {[res.participant.fullName, res.participant.altName1, res.participant.altName2].filter(Boolean).join(', ')}
+                    <tr key={res.participant.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="p-4">
+                        <div className="font-bold text-gray-800">{res.participant.fullName}</div>
+                        <div className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">
+                          Leader: {res.participant.currentLeaderId}
+                        </div>
                       </td>
-                      <td className="p-3">
-                        <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
+                      <td className="p-4">
+                        <div className="w-full max-w-[60px] bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full ${res.confidence > 80 ? 'bg-green-500' : 'bg-yellow-500'}`} 
+                            style={{ width: `${res.confidence}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-[9px] font-bold text-gray-400">{res.confidence}% match</span>
+                      </td>
+                      <td className="p-4">
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
                           res.status === AttendanceStatus.PRESENT ? 'bg-green-100 text-green-700' :
                           res.status === AttendanceStatus.ABSENT ? 'bg-red-100 text-red-700' :
                           'bg-yellow-100 text-yellow-700'
@@ -299,12 +312,12 @@ const OCRUpload: React.FC<OCRUploadProps> = ({ admin }) => {
                           {res.status}
                         </span>
                       </td>
-                      <td className="p-3">
+                      <td className="p-4 text-right">
                         <button 
                           onClick={() => toggleStatus(idx)}
-                          className="text-primary hover:text-deepRed"
+                          className="w-8 h-8 rounded-lg bg-gray-50 text-gray-400 hover:text-primary hover:bg-blue-50 transition-all"
                         >
-                          <i className="fas fa-rotate"></i>
+                          <i className="fas fa-exchange-alt text-xs"></i>
                         </button>
                       </td>
                     </tr>

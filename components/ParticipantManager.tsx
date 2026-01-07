@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { storageService } from '../services/storageService';
 import { Participant, Leader, User } from '../types';
-import { COLORS, DELETION_LOCK_DAYS, MASTER_PASSWORD } from '../constants';
+import { COLORS, MASTER_PASSWORD } from '../constants';
 
 interface ParticipantManagerProps {
   admin: User;
@@ -13,6 +13,7 @@ const ParticipantManager: React.FC<ParticipantManagerProps> = ({ admin }) => {
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [isBulkAdding, setIsBulkAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     fullName: '',
     altName1: '',
@@ -32,17 +33,41 @@ const ParticipantManager: React.FC<ParticipantManagerProps> = ({ admin }) => {
     e.preventDefault();
     if (!formData.fullName || !formData.currentLeaderId) return;
 
-    const newP: Participant = {
-      id: crypto.randomUUID(),
-      ...formData,
-      createdAt: Date.now()
-    };
+    if (editingId) {
+      const updatedP: Participant = {
+        ...participants.find(p => p.id === editingId)!,
+        ...formData
+      };
+      storageService.updateParticipant(updatedP);
+      setParticipants(participants.map(p => p.id === editingId ? updatedP : p));
+      storageService.log(admin.username, 'Participant Updated', `Updated ${updatedP.fullName}`);
+      setEditingId(null);
+    } else {
+      const newP: Participant = {
+        id: crypto.randomUUID(),
+        ...formData,
+        createdAt: Date.now()
+      };
+      storageService.addParticipant(newP);
+      setParticipants([...participants, newP]);
+      storageService.log(admin.username, 'Participant Added', `Added ${newP.fullName}`);
+    }
 
-    storageService.addParticipant(newP);
-    setParticipants([...participants, newP]);
     setIsAdding(false);
     setFormData({ fullName: '', altName1: '', altName2: '', phone: '', currentLeaderId: '' });
-    storageService.log(admin.username, 'Participant Added', `Added ${newP.fullName}`);
+  };
+
+  const startEdit = (p: Participant) => {
+    setEditingId(p.id);
+    setFormData({
+      fullName: p.fullName,
+      altName1: p.altName1 || '',
+      altName2: p.altName2 || '',
+      phone: p.phone,
+      currentLeaderId: p.currentLeaderId
+    });
+    setIsAdding(true);
+    setIsBulkAdding(false);
   };
 
   const handleBulkUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -55,7 +80,6 @@ const ParticipantManager: React.FC<ParticipantManagerProps> = ({ admin }) => {
       const lines = csv.split('\n');
       const newParticipants: Participant[] = [];
       
-      // Skip header: fullName,altName1,altName2,phone,leaderName
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
@@ -68,7 +92,7 @@ const ParticipantManager: React.FC<ParticipantManagerProps> = ({ admin }) => {
             altName1: altName1?.trim() || '',
             altName2: altName2?.trim() || '',
             phone: phone?.trim() || '',
-            currentLeaderId: leaderName.trim(), // leader name is the ID
+            currentLeaderId: leaderName.trim(), 
             createdAt: Date.now()
           });
         }
@@ -94,20 +118,13 @@ const ParticipantManager: React.FC<ParticipantManagerProps> = ({ admin }) => {
     window.URL.revokeObjectURL(url);
   };
 
-  const handleDelete = (id: string, name: string, createdAt: number) => {
-    const daysSince = (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
-    
-    if (daysSince < DELETION_LOCK_DAYS) {
-      alert(`Deletion blocked. Participants cannot be deleted within first ${DELETION_LOCK_DAYS} days.`);
-      return;
-    }
-
-    const mp = prompt(`Hard deletion of "${name}" requires Master Password:`);
-    if (mp === MASTER_PASSWORD) {
+  const handleDelete = (id: string, name: string) => {
+    const mp = prompt(`Hard deletion of "${name}" requires Master Password (case-insensitive):`);
+    if (mp?.toLowerCase() === MASTER_PASSWORD.toLowerCase()) {
       storageService.deleteParticipant(id);
       setParticipants(participants.filter(p => p.id !== id));
       storageService.log(admin.username, 'Participant Deleted', `Hard deleted ${name}`);
-    } else {
+    } else if (mp !== null) {
       alert("Unauthorized.");
     }
   };
@@ -124,7 +141,12 @@ const ParticipantManager: React.FC<ParticipantManagerProps> = ({ admin }) => {
             <i className="fas fa-file-import mr-2"></i> Bulk Upload
           </button>
           <button 
-            onClick={() => { setIsAdding(!isAdding); setIsBulkAdding(false); }}
+            onClick={() => { 
+              setIsAdding(!isAdding); 
+              setIsBulkAdding(false); 
+              setEditingId(null);
+              setFormData({ fullName: '', altName1: '', altName2: '', phone: '', currentLeaderId: '' });
+            }}
             className="bg-primary text-white px-4 py-2 rounded font-bold shadow"
             style={{ backgroundColor: COLORS.PRIMARY }}
           >
@@ -136,7 +158,7 @@ const ParticipantManager: React.FC<ParticipantManagerProps> = ({ admin }) => {
       {isBulkAdding && (
         <div className="bg-white p-6 rounded-xl border border-dashed border-primary shadow-sm text-center">
           <h3 className="font-bold mb-2">Bulk Participant Upload</h3>
-          <p className="text-sm text-gray-500 mb-4">Upload a CSV file. In the "leaderName" column, use the exact name of the leader.</p>
+          <p className="text-sm text-gray-500 mb-4">Upload a CSV file. Leader names must match exactly.</p>
           <div className="flex justify-center space-x-4">
             <button 
               onClick={downloadTemplate}
@@ -165,44 +187,47 @@ const ParticipantManager: React.FC<ParticipantManagerProps> = ({ admin }) => {
       )}
 
       {isAdding && (
-        <form onSubmit={handleAdd} className="bg-white p-6 rounded-xl border shadow-sm grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form onSubmit={handleAdd} className="bg-white p-6 rounded-xl border shadow-sm grid grid-cols-1 md:grid-cols-2 gap-4 animate-fadeIn">
+          <div className="md:col-span-2 flex justify-between">
+            <h3 className="font-bold">{editingId ? 'Edit Participant' : 'New Participant'}</h3>
+          </div>
           <div>
-            <label className="block text-sm mb-1">Full Name *</label>
+            <label className="block text-sm mb-1 font-semibold">Full Name *</label>
             <input 
-              required className="w-full p-2 border rounded" 
+              required className="w-full p-2 border rounded outline-none focus:ring-1 focus:ring-primary" 
               value={formData.fullName}
               onChange={e => setFormData({...formData, fullName: e.target.value})}
             />
           </div>
           <div>
-            <label className="block text-sm mb-1">Phone Number *</label>
+            <label className="block text-sm mb-1 font-semibold">Phone Number *</label>
             <input 
-              required className="w-full p-2 border rounded" 
+              required className="w-full p-2 border rounded outline-none focus:ring-1 focus:ring-primary" 
               placeholder="+91..."
               value={formData.phone}
               onChange={e => setFormData({...formData, phone: e.target.value})}
             />
           </div>
           <div>
-            <label className="block text-sm mb-1">Alt Name 1</label>
+            <label className="block text-sm mb-1 font-semibold">Alt Name 1</label>
             <input 
-              className="w-full p-2 border rounded" 
+              className="w-full p-2 border rounded outline-none focus:ring-1 focus:ring-primary" 
               value={formData.altName1}
               onChange={e => setFormData({...formData, altName1: e.target.value})}
             />
           </div>
           <div>
-            <label className="block text-sm mb-1">Alt Name 2</label>
+            <label className="block text-sm mb-1 font-semibold">Alt Name 2</label>
             <input 
-              className="w-full p-2 border rounded" 
+              className="w-full p-2 border rounded outline-none focus:ring-1 focus:ring-primary" 
               value={formData.altName2}
               onChange={e => setFormData({...formData, altName2: e.target.value})}
             />
           </div>
-          <div>
-            <label className="block text-sm mb-1">Assigned Leader *</label>
+          <div className="md:col-span-2">
+            <label className="block text-sm mb-1 font-semibold">Assigned Leader *</label>
             <select 
-              required className="w-full p-2 border rounded"
+              required className="w-full p-2 border rounded outline-none focus:ring-1 focus:ring-primary"
               value={formData.currentLeaderId}
               onChange={e => setFormData({...formData, currentLeaderId: e.target.value})}
             >
@@ -213,8 +238,8 @@ const ParticipantManager: React.FC<ParticipantManagerProps> = ({ admin }) => {
             </select>
           </div>
           <div className="md:col-span-2 pt-4">
-            <button type="submit" className="bg-secondary text-white px-8 py-2 rounded font-bold">
-              Save Participant
+            <button type="submit" className="bg-secondary text-white px-8 py-2 rounded font-bold shadow-md hover:opacity-90 active:scale-95 transition-all">
+              {editingId ? 'Update Participant' : 'Save Participant'}
             </button>
           </div>
         </form>
@@ -226,40 +251,53 @@ const ParticipantManager: React.FC<ParticipantManagerProps> = ({ admin }) => {
             <tr>
               <th className="p-4">Name</th>
               <th className="p-4">Phone</th>
-              <th className="p-4">Leader (Name/ID)</th>
+              <th className="p-4">Leader</th>
               <th className="p-4">Created</th>
-              <th className="p-4">Actions</th>
+              <th className="p-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y text-sm">
             {participants.map(p => (
-              <tr key={p.id}>
+              <tr key={p.id} className="hover:bg-gray-50">
                 <td className="p-4">
                   <div className="font-bold">{p.fullName}</div>
                   <div className="text-xs text-gray-500">{[p.altName1, p.altName2].filter(Boolean).join(', ')}</div>
                 </td>
-                <td className="p-4">{p.phone}</td>
+                <td className="p-4 font-mono">{p.phone}</td>
                 <td className="p-4">
                   <div className="text-xs font-bold text-primary">
                     {p.currentLeaderId}
                   </div>
                   <div className="text-[10px] text-gray-400">
-                    {leaders.find(l => l.id === p.currentLeaderId)?.groupName || 'Unassigned Group'}
+                    {leaders.find(l => l.id === p.currentLeaderId)?.groupName || 'Unassigned'}
                   </div>
                 </td>
                 <td className="p-4 text-gray-500">
                   {new Date(p.createdAt).toLocaleDateString()}
                 </td>
-                <td className="p-4">
-                  <button 
-                    onClick={() => handleDelete(p.id, p.fullName, p.createdAt)}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    <i className="fas fa-trash"></i>
-                  </button>
+                <td className="p-4 text-right">
+                  <div className="flex justify-end space-x-3">
+                    <button 
+                      onClick={() => startEdit(p)}
+                      className="text-blue-500 hover:text-blue-700"
+                      title="Edit Details"
+                    >
+                      <i className="fas fa-edit"></i>
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(p.id, p.fullName)}
+                      className="text-red-500 hover:text-red-700"
+                      title="Delete Permanent"
+                    >
+                      <i className="fas fa-trash"></i>
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
+            {participants.length === 0 && (
+              <tr><td colSpan={5} className="p-10 text-center text-gray-400">No participants registered yet.</td></tr>
+            )}
           </tbody>
         </table>
       </div>
